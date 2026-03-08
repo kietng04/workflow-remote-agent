@@ -114,6 +114,9 @@ def build_codex_prompt(user_text: str) -> str:
         "- Khong duoc noi DONE neu chua xong buoc video + Telegram trong truong hop task co the demo duoc.\n"
         "- KHONG duoc compact context, handoff, start thread moi, hoac doi active thread tru khi nguoi dung noi ro yeu cau do.\n"
         "- Neu tin nhan hien tai khong nhac den compact/handoff/start chat moi thi phai tiep tuc tren active thread hien tai.\n\n"
+        "- Neu nguoi dung yeu cau quay video cho mot app/web/luong cu the nhu login, form, dashboard, chatbot, CRUD, thi video bat buoc phai quay dung flow do tren app that.\n"
+        "- Khong duoc thay the bang video proof cua handoff, README, file JSON, trang tong hop, hay artifact khong lien quan den flow nguoi dung vua yeu cau.\n"
+        "- Voi web flow, uu tien dung MCP browser / Playwright / playwright_record de quay va xac thuc truc tiep tren giao dien that.\n\n"
         "Bat dau xu ly yeu cau cua nguoi dung."
     )
 

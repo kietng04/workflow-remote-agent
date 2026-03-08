@@ -11,6 +11,8 @@ TELEGRAM_BOT_TOKEN, TELEGRAM_ALLOWED_CHAT_ID, CODEX_FIXED_THREAD_ID, CODEX_WORKD
 Sau do chay lai ./scripts/install.sh.
 Chay ./scripts/verify_install.sh.
 Neu bridge da cau hinh day du, xac nhan telegram-codex-bridge.service dang active va co the gui test message qua Telegram.
+Xac nhan bridge dang ap dung rule: task demonstrable phai quay proof video va gui Telegram truoc khi bao DONE.
+Xac nhan dong Worked for duoc tinh theo tung message Telegram, khong theo tuoi cua thread.
 Tra loi bang tieng Viet.
 ```
 

@@ -42,7 +42,8 @@ python3 codex_handoff.py
 - Bot không thể chủ động nhắn cho một user nếu user chưa mở chat và gửi `/start`.
 - Sau khi có `chat_id`, CLI sẽ lưu vào `.telegram_bot_state.json` để dùng lại.
 - Khi dùng `send-file --as video`, CLI sẽ tự convert file không phải `mp4` sang `mp4` trước khi gửi Telegram.
-- Bridge khi gửi reply text sẽ tự đính thêm dòng `Worked for X minutes Y seconds` dựa trên thời điểm thread active được tạo.
+- Bridge khi gửi reply text sẽ tự đính thêm dòng `Worked for X minutes Y seconds` tính theo đúng thời gian xử lý của từng tin nhắn Telegram.
+- Bridge sẽ chèn thêm runtime instruction để ép các task demonstrable/UI/setup có proof video và gửi video qua Telegram trước khi agent được phép báo `DONE`.
 
 ## Bridge Telegram -> Codex
 

@@ -11,6 +11,8 @@ No dong goi:
 - patch local cho `playwright-record-mcp`
 - script cap nhat `~/.codex/config.toml`
 - script verify sau cai dat
+- bridge rule ep task demonstrable phai quay proof video va gui Telegram truoc khi bao `DONE`
+- dong `Worked for X minutes Y seconds` tinh theo tung tin nhan Telegram, khong tinh theo tuoi cua thread
 
 ## Cau truc
 
@@ -87,6 +89,15 @@ Script verify se kiem tra:
 - MCP `playwright-record-mcp` da ton tai va build xong
 - `~/.codex/config.toml` co block `playwright_record`
 - `telegram_bot.py get-me` thanh cong neu token da duoc cau hinh
+
+## Hanh vi bridge hien tai
+
+Telegram bridge dang them mot lop instruction runtime truoc khi goi Codex:
+
+- task ngan, chao hoi, hoi dap don gian thi van tra loi ngan gon
+- task co deliverable, browser flow, UI, setup he thong, hoac ket qua co the demo duoc thi phai quay proof video
+- proof video phai duoc gui qua Telegram truoc khi agent duoc phep ket luan `DONE`
+- dong `Worked for X minutes Y seconds` duoc tinh tu luc bridge nhan tin nhan Telegram den luc gui reply ra Telegram
 
 ## Quan ly service
 

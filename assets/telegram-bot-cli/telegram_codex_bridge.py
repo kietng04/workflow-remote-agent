@@ -111,7 +111,9 @@ def build_codex_prompt(user_text: str) -> str:
         "- Voi task demonstrable, UI, browser flow, setup he thong, hoac ket qua co the quay lai duoc: truoc khi bao DONE phai record proof video va gui video do qua Telegram.\n"
         f"- Lenh gui video san co tren may: python3 {telegram_cli} send-file --path /path/to/video.webm --as video --caption \"proof\"\n"
         "- Cau tra loi cuoi cho task demonstrable phai neu ro duong dan video, Telegram message_id, va ket qua xac thuc. Neu chua gui duoc video thi phai BLOCKED va noi ro blocker.\n"
-        "- Khong duoc noi DONE neu chua xong buoc video + Telegram trong truong hop task co the demo duoc.\n\n"
+        "- Khong duoc noi DONE neu chua xong buoc video + Telegram trong truong hop task co the demo duoc.\n"
+        "- KHONG duoc compact context, handoff, start thread moi, hoac doi active thread tru khi nguoi dung noi ro yeu cau do.\n"
+        "- Neu tin nhan hien tai khong nhac den compact/handoff/start chat moi thi phai tiep tuc tren active thread hien tai.\n\n"
         "Bat dau xu ly yeu cau cua nguoi dung."
     )
 

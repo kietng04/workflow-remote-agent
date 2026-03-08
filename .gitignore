@@ -1,0 +1,10 @@
+.env
+.env.local
+__pycache__/
+*.pyc
+.DS_Store
+assets/telegram-bot-cli/.env
+assets/telegram-bot-cli/.telegram_bot_state.json
+assets/telegram-bot-cli/bridge.log
+assets/telegram-bot-cli/converted_videos/
+assets/telegram-bot-cli/handoffs/

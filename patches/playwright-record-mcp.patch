@@ -1,0 +1,276 @@
+diff --git a/src/context.ts b/src/context.ts
+index 45fd2fa..7747988 100644
+--- a/src/context.ts
++++ b/src/context.ts
+@@ -313,6 +313,10 @@ ${code.join('\n')}
+       const contextOptions = { ...this.options.launchOptions } as any;
+       
+       if (this.options.recordVideo) {
++        const viewport = contextOptions.viewport ?? { width: 1280, height: 720 };
++        contextOptions.viewport = viewport;
++        contextOptions.deviceScaleFactor = contextOptions.deviceScaleFactor ?? 1;
++
+         // 비디오 저장 디렉토리 설정
+         const videoDir = this.options.videoDir || path.join(process.cwd(), 'mcp_videos');
+         
+@@ -324,7 +328,7 @@ ${code.join('\n')}
+         // recordVideo 옵션 추가 (타입 단언 사용)
+         contextOptions.recordVideo = {
+           dir: videoDir,
+-          size: { width: 800, height: 600 }
++          size: { width: viewport.width, height: viewport.height }
+         };
+       }
+       
+@@ -407,6 +411,112 @@ export class Tab {
+   async captureSnapshot() {
+     this._snapshot = await PageSnapshot.create(this.page);
+   }
++
++  async moveVisualCursorToLocator(locator: playwright.Locator, mode: 'center' | 'leading' = 'center') {
++    if (!this.context.options.recordVideo)
++      return;
++    try {
++      const box = await locator.boundingBox();
++      if (!box)
++        return;
++      const x = mode === 'center' ? box.x + box.width / 2 : box.x + Math.min(12, box.width / 4);
++      const y = mode === 'center' ? box.y + box.height / 2 : box.y + Math.min(12, box.height / 2);
++      await this.showVisualCursor(x, y);
++    } catch {
++    }
++  }
++
++  async showVisualCursor(x: number, y: number, click = false) {
++    if (!this.context.options.recordVideo)
++      return;
++    try {
++      await this.page.evaluate(({ x, y, click }) => {
++        const cursorId = '__pw_mcp_visual_cursor';
++        const pulseId = '__pw_mcp_visual_cursor_pulse';
++        const styleId = '__pw_mcp_visual_cursor_style';
++
++        if (!document.getElementById(styleId)) {
++          const style = document.createElement('style');
++          style.id = styleId;
++          style.textContent = `
++            #${cursorId} {
++              position: fixed;
++              left: 0;
++              top: 0;
++              width: 18px;
++              height: 18px;
++              margin-left: -2px;
++              margin-top: -2px;
++              border: 2px solid rgba(255, 255, 255, 0.98);
++              border-radius: 999px;
++              background: rgba(17, 24, 39, 0.28);
++              box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.82);
++              pointer-events: none;
++              z-index: 2147483647;
++              transform: translate(-9999px, -9999px);
++              transition: transform 120ms ease-out, background 100ms ease-out;
++            }
++            #${cursorId}.clicking {
++              background: rgba(239, 68, 68, 0.88);
++            }
++            #${pulseId} {
++              position: fixed;
++              left: 0;
++              top: 0;
++              width: 30px;
++              height: 30px;
++              margin-left: -8px;
++              margin-top: -8px;
++              border: 2px solid rgba(239, 68, 68, 0.9);
++              border-radius: 999px;
++              pointer-events: none;
++              z-index: 2147483646;
++              transform: translate(-9999px, -9999px) scale(0.6);
++              opacity: 0;
++            }
++            #${pulseId}.active {
++              animation: pw-mcp-cursor-pulse 220ms ease-out;
++            }
++            @keyframes pw-mcp-cursor-pulse {
++              0% { opacity: 0.9; transform: translate(var(--cursor-x), var(--cursor-y)) scale(0.55); }
++              100% { opacity: 0; transform: translate(var(--cursor-x), var(--cursor-y)) scale(1.7); }
++            }
++          `;
++          document.documentElement.appendChild(style);
++        }
++
++        let cursor = document.getElementById(cursorId);
++        if (!cursor) {
++          cursor = document.createElement('div');
++          cursor.id = cursorId;
++          document.documentElement.appendChild(cursor);
++        }
++
++        let pulse = document.getElementById(pulseId);
++        if (!pulse) {
++          pulse = document.createElement('div');
++          pulse.id = pulseId;
++          document.documentElement.appendChild(pulse);
++        }
++
++        const tx = `${Math.round(x)}px`;
++        const ty = `${Math.round(y)}px`;
++        cursor.style.transform = `translate(${tx}, ${ty})`;
++        pulse.style.transform = `translate(${tx}, ${ty}) scale(0.6)`;
++        pulse.style.setProperty('--cursor-x', tx);
++        pulse.style.setProperty('--cursor-y', ty);
++        cursor.classList.toggle('clicking', click);
++
++        if (click) {
++          pulse.classList.remove('active');
++          void pulse.offsetWidth;
++          pulse.classList.add('active');
++          setTimeout(() => cursor?.classList.remove('clicking'), 140);
++        }
++      }, { x, y, click });
++    } catch {
++    }
++  }
+   
+   async getVideoPath(): Promise<string | undefined> {
+     try {
+diff --git a/src/tools/screen.ts b/src/tools/screen.ts
+index 7e906b9..76fba47 100644
+--- a/src/tools/screen.ts
++++ b/src/tools/screen.ts
+@@ -72,7 +72,10 @@ const moveMouse = defineTool({
+       `// Move mouse to (${params.x}, ${params.y})`,
+       `await page.mouse.move(${params.x}, ${params.y});`,
+     ];
+-    const action = () => tab.page.mouse.move(params.x, params.y);
++    const action = async () => {
++      await tab.page.mouse.move(params.x, params.y);
++      await tab.showVisualCursor(params.x, params.y);
++    };
+     return {
+       code,
+       action,
+@@ -105,6 +108,7 @@ const click = defineTool({
+       await tab.page.mouse.move(params.x, params.y);
+       await tab.page.mouse.down();
+       await tab.page.mouse.up();
++      await tab.showVisualCursor(params.x, params.y, true);
+     };
+     return {
+       code,
+@@ -142,9 +146,11 @@ const drag = defineTool({
+ 
+     const action = async () => {
+       await tab.page.mouse.move(params.startX, params.startY);
++      await tab.showVisualCursor(params.startX, params.startY);
+       await tab.page.mouse.down();
+       await tab.page.mouse.move(params.endX, params.endY);
+       await tab.page.mouse.up();
++      await tab.showVisualCursor(params.endX, params.endY, true);
+     };
+ 
+     return {
+diff --git a/src/tools/snapshot.ts b/src/tools/snapshot.ts
+index 43b0e9c..5eb4b3d 100644
+--- a/src/tools/snapshot.ts
++++ b/src/tools/snapshot.ts
+@@ -69,7 +69,15 @@ const click = defineTool({
+ 
+     return {
+       code,
+-      action: () => locator.click(),
++      action: async () => {
++        await tab.moveVisualCursorToLocator(locator);
++        await locator.click();
++        if (context.options.recordVideo) {
++          const box = await locator.boundingBox();
++          if (box)
++            await tab.showVisualCursor(box.x + box.width / 2, box.y + box.height / 2, true);
++        }
++      },
+       captureSnapshot: true,
+       waitForNetwork: true,
+     };
+@@ -90,7 +98,8 @@ const drag = defineTool({
+   },
+ 
+   handle: async (context, params) => {
+-    const snapshot = context.currentTabOrDie().snapshotOrDie();
++    const tab = context.currentTabOrDie();
++    const snapshot = tab.snapshotOrDie();
+     const startLocator = snapshot.refLocator(params.startRef);
+     const endLocator = snapshot.refLocator(params.endRef);
+ 
+@@ -101,7 +110,11 @@ const drag = defineTool({
+ 
+     return {
+       code,
+-      action: () => startLocator.dragTo(endLocator),
++      action: async () => {
++        await tab.moveVisualCursorToLocator(startLocator);
++        await startLocator.dragTo(endLocator);
++        await tab.moveVisualCursorToLocator(endLocator);
++      },
+       captureSnapshot: true,
+       waitForNetwork: true,
+     };
+@@ -117,7 +130,8 @@ const hover = defineTool({
+   },
+ 
+   handle: async (context, params) => {
+-    const snapshot = context.currentTabOrDie().snapshotOrDie();
++    const tab = context.currentTabOrDie();
++    const snapshot = tab.snapshotOrDie();
+     const locator = snapshot.refLocator(params.ref);
+ 
+     const code = [
+@@ -127,7 +141,10 @@ const hover = defineTool({
+ 
+     return {
+       code,
+-      action: () => locator.hover(),
++      action: async () => {
++        await tab.moveVisualCursorToLocator(locator);
++        await locator.hover();
++      },
+       captureSnapshot: true,
+       waitForNetwork: true,
+     };
+@@ -149,16 +166,30 @@ const type = defineTool({
+   },
+ 
+   handle: async (context, params) => {
+-    const snapshot = context.currentTabOrDie().snapshotOrDie();
++    const tab = context.currentTabOrDie();
++    const snapshot = tab.snapshotOrDie();
+     const locator = snapshot.refLocator(params.ref);
+ 
+     const code: string[] = [];
+     const steps: (() => Promise<void>)[] = [];
+-
+-    if (params.slowly) {
+-      code.push(`// Press "${params.text}" sequentially into "${params.element}"`);
+-      code.push(`await page.${await generateLocator(locator)}.pressSequentially(${javascript.quote(params.text)});`);
+-      steps.push(() => locator.pressSequentially(params.text));
++    const useNaturalTyping = !!params.slowly || !!context.options.recordVideo;
++
++    if (useNaturalTyping) {
++      const delay = params.slowly ? 120 : 45;
++      code.push(`// Click "${params.element}" and type "${params.text}" with a user-like delay`);
++      code.push(`await page.${await generateLocator(locator)}.click();`);
++      code.push(`await page.${await generateLocator(locator)}.fill('');`);
++      code.push(`await page.${await generateLocator(locator)}.pressSequentially(${javascript.quote(params.text)}, { delay: ${delay} });`);
++      steps.push(async () => {
++        await tab.moveVisualCursorToLocator(locator, 'leading');
++        await locator.click();
++        await tab.moveVisualCursorToLocator(locator, 'leading');
++        const box = await locator.boundingBox();
++        if (box && context.options.recordVideo)
++          await tab.showVisualCursor(box.x + Math.min(12, box.width / 4), box.y + Math.min(12, box.height / 2), true);
++        await locator.fill('');
++        await locator.pressSequentially(params.text, { delay });
++      });
+     } else {
+       code.push(`// Fill "${params.text}" into "${params.element}"`);
+       code.push(`await page.${await generateLocator(locator)}.fill(${javascript.quote(params.text)});`);

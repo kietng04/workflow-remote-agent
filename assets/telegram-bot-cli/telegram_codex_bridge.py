@@ -2,13 +2,11 @@
 from __future__ import annotations
 
 import argparse
-import functools
 import json
 import os
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -76,63 +74,14 @@ def split_message(text: str, max_chars: int = 4000) -> list[str]:
         chunks.append(remaining)
     return chunks
 
-
-@functools.lru_cache(maxsize=64)
-def find_session_file(thread_id: str) -> Path | None:
-    sessions_root = Path.home() / ".codex" / "sessions"
-    matches = sorted(sessions_root.rglob(f"*{thread_id}.jsonl"))
-    return matches[-1] if matches else None
-
-
-@functools.lru_cache(maxsize=64)
-def get_session_started_at(thread_id: str) -> datetime | None:
-    session_file = find_session_file(thread_id)
-    if not session_file:
-        return None
-
-    try:
-        with session_file.open(encoding="utf-8") as handle:
-            first_line = handle.readline().strip()
-    except OSError:
-        return None
-
-    if not first_line:
-        return None
-
-    try:
-        payload = json.loads(first_line)
-    except json.JSONDecodeError:
-        return None
-
-    session_meta = payload.get("payload") if payload.get("type") == "session_meta" else None
-    timestamp = None
-    if isinstance(session_meta, dict):
-        timestamp = session_meta.get("timestamp")
-    if not timestamp:
-        timestamp = payload.get("timestamp")
-    if not isinstance(timestamp, str):
-        return None
-
-    try:
-        return datetime.fromisoformat(timestamp.replace("Z", "+00:00")).astimezone(timezone.utc)
-    except ValueError:
-        return None
-
-
-def format_worked_duration(thread_id: str) -> str | None:
-    started_at = get_session_started_at(thread_id)
-    if not started_at:
-        return None
-    elapsed_seconds = max(0, int((datetime.now(timezone.utc) - started_at).total_seconds()))
+def format_worked_duration(elapsed_seconds: int) -> str:
     minutes, seconds = divmod(elapsed_seconds, 60)
     return f"Worked for {minutes} minutes {seconds} seconds"
 
 
-def append_worked_duration(reply_text: str, thread_id: str) -> str:
-    worked_text = format_worked_duration(thread_id)
-    if not worked_text:
-        return reply_text
-    return f"{reply_text.rstrip()}\n\n{worked_text}"
+def append_worked_duration(reply_text: str, started_at_monotonic: float) -> str:
+    elapsed_seconds = max(0, int(time.monotonic() - started_at_monotonic))
+    return f"{reply_text.rstrip()}\n\n{format_worked_duration(elapsed_seconds)}"
 
 
 def load_active_thread_id(default_thread_id: str) -> str:
@@ -148,6 +97,23 @@ def merge_state(changes: dict[str, Any]) -> dict[str, Any]:
     state.update(changes)
     save_state(state)
     return state
+
+
+def build_codex_prompt(user_text: str) -> str:
+    telegram_cli = BASE_DIR / "telegram_bot.py"
+    return (
+        "Tin nhan nguoi dung tu Telegram:\n"
+        f"{user_text.strip()}\n\n"
+        "Huong dan van hanh bat buoc cho luot nay:\n"
+        "- Lam viec theo AGENTS.md va instruction cua repo hien tai.\n"
+        "- Neu day chi la chao hoi hoac hoi dap ngan khong can thao tac he thong, tra loi ngan gon binh thuong.\n"
+        "- Neu day la task co deliverable hoac co the demo duoc, khong duoc dung lai o text-only.\n"
+        "- Voi task demonstrable, UI, browser flow, setup he thong, hoac ket qua co the quay lai duoc: truoc khi bao DONE phai record proof video va gui video do qua Telegram.\n"
+        f"- Lenh gui video san co tren may: python3 {telegram_cli} send-file --path /path/to/video.webm --as video --caption \"proof\"\n"
+        "- Cau tra loi cuoi cho task demonstrable phai neu ro duong dan video, Telegram message_id, va ket qua xac thuc. Neu chua gui duoc video thi phai BLOCKED va noi ro blocker.\n"
+        "- Khong duoc noi DONE neu chua xong buoc video + Telegram trong truong hop task co the demo duoc.\n\n"
+        "Bat dau xu ly yeu cau cua nguoi dung."
+    )
 
 
 def run_codex_resume(
@@ -256,14 +222,16 @@ def handle_update(
     thread_id = load_active_thread_id(default_thread_id)
     log(f"[bridge] active thread={thread_id}")
     log(f"[telegram] incoming text: {incoming_text[:120]!r}")
+    started_at_monotonic = time.monotonic()
+    codex_prompt = build_codex_prompt(incoming_text)
     reply_text = run_codex_resume(
         thread_id=thread_id,
-        prompt=incoming_text,
+        prompt=codex_prompt,
         workdir=codex_workdir,
         yolo=yolo,
         codex_bin=codex_bin,
     )
-    reply_text = append_worked_duration(reply_text, thread_id)
+    reply_text = append_worked_duration(reply_text, started_at_monotonic)
 
     for chunk in split_message(reply_text):
         client.send_message(chat_id=allowed_chat_id, text=chunk)
